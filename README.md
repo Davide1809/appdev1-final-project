@@ -79,6 +79,27 @@ npm start
 
 The server will start on `http://localhost:3000`
 
+## Running Tests
+
+Jest is configured for unit and integration testing:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run specific test file
+npm test -- __tests__/auth.test.js
+```
+
+Tests cover:
+- User authentication (register, login, logout)
+- Protected routes (401 unauthorized)
+- Error handling (400, 401, 404, 500)
+- Response format validation
+
 ## Development Progress
 
 ### Week 1 ✓
@@ -95,11 +116,11 @@ The server will start on `http://localhost:3000`
 - [x] Authorization middleware (ownership-based access)
 - [x] All endpoints tested and verified
 
-### Week 3 (To Do)
-- [ ] Role-based access control (admin features)
-- [ ] Unit testing
-- [ ] Documentation completion
-- [ ] Screenshots and final polish
+### Week 3 ✓
+- [x] Role-based access control - Admin features
+- [x] Unit testing with Jest
+- [x] Screenshots and documentation
+- [x] Final code quality review
 
 ## Database Schema
 
@@ -148,6 +169,16 @@ The server will start on `http://localhost:3000`
 - `POST /api/categories` - Create new category (requires login)
 - `PUT /api/categories/:id` - Update category (ownership check)
 - `DELETE /api/categories/:id` - Delete category (ownership check)
+
+### Admin Routes (Admin Only - Requires Admin Role)
+- `GET /api/admin/users` - Get all users in system
+- `GET /api/admin/users/:id` - Get specific user details
+- `PUT /api/admin/users/:id/promote` - Promote user to admin
+- `PUT /api/admin/users/:id/demote` - Demote admin to user
+- `DELETE /api/admin/users/:id` - Delete any user
+- `GET /api/admin/products` - Get all products (all users)
+- `GET /api/admin/categories` - Get all categories (all users)
+- `GET /api/admin/dashboard/stats` - Get system statistics
 
 ## Error Handling
 

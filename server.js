@@ -30,10 +30,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// Routes will be added here
+// Routes
 app.use('/api/users', require('./routes/users'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/categories', require('./routes/categories'));
+app.use('/api/admin', require('./routes/admin'));
 
 // 404 error handler
 app.use((req, res) => {
