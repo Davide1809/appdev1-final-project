@@ -2,6 +2,18 @@ const pool = require('../db');
 const bcrypt = require('bcryptjs');
 
 module.exports = {
+  me: (req, res) => {
+    res.json({
+      status: 'success',
+      user: {
+        id: req.session.userId,
+        username: req.session.username,
+        role: req.session.role
+      },
+      code: 200
+    });
+  },
+
   register: async (req, res) => {
     try {
       const { username, email, password, confirmPassword } = req.body;

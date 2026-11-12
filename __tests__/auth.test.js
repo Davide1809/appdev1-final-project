@@ -3,6 +3,16 @@ const express = require('express');
 const session = require('express-session');
 const pool = require('../db');
 
+const testSuffix = `${Date.now()}_${process.pid}`;
+const testCredentials = {
+  username: `testuser_${testSuffix}`,
+  email: `test_${testSuffix}@example.com`,
+  password: 'password123'
+};
+const cleanupUserIds = new Set();
+let userId = null;
+let sessionCookie = null;
+
 // Setup Express app for testing
 const app = express();
 
@@ -22,33 +32,29 @@ app.use('/api/categories', require('../routes/categories'));
 app.use('/api/admin', require('../routes/admin'));
 
 describe('Authentication Tests', () => {
-  let userId = null;
-  let sessionCookie = null;
-
   test('POST /api/users/register - Should register a new user', async () => {
     const res = await request(app)
       .post('/api/users/register')
       .send({
-        username: 'testuser',
-        email: 'test@example.com',
-        password: 'password123',
-        confirmPassword: 'password123'
+        ...testCredentials,
+        confirmPassword: testCredentials.password
       });
 
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('success');
     expect(res.body.message).toContain('registered successfully');
     userId = res.body.userId;
+    cleanupUserIds.add(userId);
   });
 
   test('POST /api/users/register - Should fail with duplicate username', async () => {
     const res = await request(app)
       .post('/api/users/register')
       .send({
-        username: 'testuser',
-        email: 'another@example.com',
-        password: 'password123',
-        confirmPassword: 'password123'
+        username: testCredentials.username,
+        email: `another_${testSuffix}@example.com`,
+        password: testCredentials.password,
+        confirmPassword: testCredentials.password
       });
 
     expect(res.status).toBe(400);
@@ -59,9 +65,9 @@ describe('Authentication Tests', () => {
     const res = await request(app)
       .post('/api/users/register')
       .send({
-        username: 'user2',
-        email: 'user2@example.com',
-        password: 'password123',
+        username: `user2_${testSuffix}`,
+        email: `user2_${testSuffix}@example.com`,
+        password: testCredentials.password,
         confirmPassword: 'wrongpassword'
       });
 
@@ -72,15 +78,12 @@ describe('Authentication Tests', () => {
   test('POST /api/users/login - Should login successfully', async () => {
     const res = await request(app)
       .post('/api/users/login')
-      .send({
-        username: 'testuser',
-        password: 'password123'
-      });
+      .send({ username: testCredentials.username, password: testCredentials.password });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('success');
     expect(res.body.user.id).toBe(userId);
-    expect(res.body.user.username).toBe('testuser');
+    expect(res.body.user.username).toBe(testCredentials.username);
     
     // Save session cookie for subsequent tests
     sessionCookie = res.headers['set-cookie'];
@@ -90,16 +93,31 @@ describe('Authentication Tests', () => {
     const res = await request(app)
       .post('/api/users/login')
       .send({
-        username: 'testuser',
+        username: testCredentials.username,
         password: 'wrongpassword'
       });
 
     expect(res.status).toBe(401);
     expect(res.body.status).toBe('error');
   });
+
+  test('GET /api/users/me - Should return the current session user', async () => {
+    const res = await request(app)
+      .get('/api/users/me')
+      .set('Cookie', sessionCookie[0]);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.username).toBe(testCredentials.username);
+  });
 });
 
 describe('Protected Routes Tests', () => {
+  test('GET /api/users/me - Should fail without authentication (401)', async () => {
+    const res = await request(app).get('/api/users/me');
+
+    expect(res.status).toBe(401);
+  });
+
   test('GET /api/products - Should fail without authentication (401)', async () => {
     const res = await request(app)
       .get('/api/products');
@@ -107,6 +125,24 @@ describe('Protected Routes Tests', () => {
     expect(res.status).toBe(401);
     expect(res.body.status).toBe('error');
     expect(res.body.message).toContain('log in');
+  });
+
+  test('GET /api/products - Should succeed with authentication', async () => {
+    const res = await request(app)
+      .get('/api/products')
+      .set('Cookie', sessionCookie[0]);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('success');
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+
+  test('GET /api/admin/dashboard/stats - Should be forbidden for a regular user (403)', async () => {
+    const res = await request(app)
+      .get('/api/admin/dashboard/stats')
+      .set('Cookie', sessionCookie[0]);
+
+    expect(res.status).toBe(403);
   });
 
   test('GET /api/categories - Should fail without authentication (401)', async () => {
@@ -156,11 +192,15 @@ describe('Response Format Tests', () => {
     const res = await request(app)
       .post('/api/users/register')
       .send({
-        username: 'testuser2',
-        email: 'test2@example.com',
-        password: 'password123',
-        confirmPassword: 'password123'
+        username: `testuser2_${testSuffix}`,
+        email: `test2_${testSuffix}@example.com`,
+        password: testCredentials.password,
+        confirmPassword: testCredentials.password
       });
+
+    if (res.body.userId) {
+      cleanupUserIds.add(res.body.userId);
+    }
 
     expect(res.body).toHaveProperty('status');
     expect(res.body).toHaveProperty('message');
@@ -181,4 +221,14 @@ describe('Response Format Tests', () => {
     expect(res.body).toHaveProperty('code');
     expect(res.body.status).toBe('error');
   });
+});
+
+afterAll(async () => {
+  try {
+    for (const id of cleanupUserIds) {
+      await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+    }
+  } finally {
+    await pool.end();
+  }
 });

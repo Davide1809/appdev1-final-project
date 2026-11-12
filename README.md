@@ -62,11 +62,13 @@ DB_USER=root
 DB_PASSWORD=your_password
 DB_NAME=inventory_system
 SESSION_SECRET=your-secret-key-change-this
+FRONTEND_ORIGINS=http://localhost:5173
+SESSION_COOKIE_SAME_SITE=lax
 PORT=3000
 NODE_ENV=development
 ```
 
-**Security Tip**: Change `SESSION_SECRET` to a random string in production!
+`SESSION_SECRET` is required; the server will not start without it. Keep it and database credentials in `.env`, never in frontend code or a public repository. Set `FRONTEND_ORIGINS` to the exact comma-separated frontend origins allowed to make credentialed requests. In production, use HTTPS; for a cross-site frontend set `SESSION_COOKIE_SAME_SITE=none` (which requires a secure cookie). Add CSRF protection before enabling cross-site session cookies for state-changing endpoints.
 
 ### 5. Run the Server
 ```bash
@@ -155,6 +157,9 @@ Tests cover:
 - `POST /api/users/register` - Register a new user
 - `POST /api/users/login` - Login user
 - `POST /api/users/logout` - Logout user
+- `GET /api/users/me` - Get the current authenticated user's session profile (401 if logged out)
+
+`POST /api/users/login` accepts `{"username":"...","password":"..."}` and returns **200 OK** for valid credentials or **401 Unauthorized** for invalid credentials. The response sets an `HttpOnly` session cookie for subsequent requests.
 
 ### Products (Protected Routes)
 - `GET /api/products` - Get all products for authenticated user

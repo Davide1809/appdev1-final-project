@@ -3,21 +3,36 @@ const session = require('express-session');
 const cors = require('cors');
 require('dotenv').config();
 
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw new Error('SESSION_SECRET must be set in the backend environment.');
+}
+
+const allowedOrigins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Session Configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'default-secret-key',
+  secret: sessionSecret,
   resave: false,
-  saveUninitialized: true,
-  cookie: { 
+  saveUninitialized: false,
+  cookie: {
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
-    httpOnly: true
+    httpOnly: true,
+    sameSite: process.env.SESSION_COOKIE_SAME_SITE || 'lax',
+    secure: process.env.NODE_ENV === 'production'
   }
 }));
 
